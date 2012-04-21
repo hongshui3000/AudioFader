@@ -51,6 +51,7 @@ static inline int multi_rl(int left, unsigned int in_rl, unsigned int v_rl)
 int init_af(struct audio_fader *af)
 {
 	reset(af);
+	return 0;
 }
 
 void exit_af(struct audio_fader *af)
