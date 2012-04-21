@@ -1,5 +1,5 @@
 /*
- * audio_fader.c
+ * audio_fader.h
  * This file is part of AudioFader 
  *
  * Copyright (C) 2012 - Timothy
@@ -18,113 +18,37 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#include <stdlib.h>
-#include "audio_fader.h"
 
-#define SAMPLE_RATE    44100
-#define SHIFT      	   14
 #define MAX_TARGET     100
-#define MAX_DURATION   
+#define MAX_DURATION   350
 
+#define true 1
+#define false 0
 #define OK 0
 #define INVALID -1
 
-static const int max_gain = 1 << SHIFT;
-static const float sample_per_ms = SAMPLE_RATE / 1000.0f;
-static const int max_duration = (1 << SHIFT) / SAMPLE_RATE * 1000;
+enum fade_type {
+	FADE_IN,
+	FADE_OUT,
+};
 
-// Local utility functions
-static void reset(struct audio_fader *af)
-{
-	af->duration = 0;
-	af->init = max_gain;
-	af->target = max_gain;
-	af->step = 0;
-	af->enable_fade = false;
-}
-
-static inline int multi_rl(int left, unsigned int in_rl, unsigned int v_rl)
-{
-    if (left) {
-        return short(in_rl & 0xFFFF) * short(v_rl & 0xFFFF);
-    } else {
-        return short(in_rl >> 16) * short(v_rl >> 16);
-    }
-}
+struct audio_fader {
+	unsigned int duration;
+	unsigned int init;
+	unsigned int target;
+	int step;
+	_Bool enable_fade;
+};
 
 // Public interfaces
-int init(struct audio_fader *af)
-{
-	reset(af);
-}
+int init_af(struct audio_fader *af);
 
-void exit(struct audio_fader *af)
-{
-}
+void exit_af(struct audio_fader *af);
 
-int start_fade(struct audio_fader *af, enum fade_type type, unsigned int duration_msec, unsigned int target)
-{
-	if (duration_msec <= 0 || duration_msec > max_duration) {
-		af->duration = max_duration;
-	}
-	af->duration = duration_msec;
+int start_fade(struct audio_fader *af, enum fade_type type, unsigned int duration_msec, unsigned int target);
 
-	if (target < 0 || target > MAX_TARGET)
-		return INVALID;
-	af->target = max_gain * target / MAX_TARGET;
-
-	if (type == FADE_IN) {
-		af->init = 0;
-		af->step = int (target / (duration_msec * sample_per_ms));
-	} else if (type == FADE_OUT) {
-		af->init = max_gain;
-		af->step = int ((target - max_gain) / (duration_msec * sample_per_ms));
-	} else {
-		return INVALID;
-	}
-
-	af->enable_fade = true;
-
-	return OK;
-}
-
-void stop_fade(struct audio_fader *af)
-{
-	af->enable_fade = false;
-}
+void stop_fade(struct audio_fader *af);
 
 // process frame_count samples in in_buffer and copy them into out_buffer
-void process(struct audio_fader *af, const short *in_buffer, short *out_buffer, unsigned int frame_count)
-{
-	if (!af->enable_fade) {
-		if (in_buffer == out_buffer) {
-			return;
-		} else {
-			memcpy((char *)out_buffer, (char *)in_buffer, frame_count * 4); // here assumes stereo 16-bit pcm
-			return;
-		}
-	}
-	//TODO: process data when enabled
-	unsigned int *in_rl = (unsigned int const *)in_buffer;
-	unsigned int *out = (unsigned int *)out_buffer;
-	unsigned int vrl = (target << 16) | (target & 0xFFFF);
-	
-	do {
-		if (af->step != 0) {
-			if ((step > 0 && af->init + step < target)
-				|| (step < 0 && af->init + step > target)) {
-				af->init += step;
-				vrl = (af->init << 16) | (af->init & 0xFFFF);
-			} else {
-				af->step = 0;
-				vrl = (target << 16) | (target & 0xFFFF);
-			}
-		}
-		
-        int l = multi_rl(1, *in_rl, vrl) >> SHIFT;
-        int r = multi_rl(0, *in_rl, vrl) >> SHIFT;
-        *out++ = (r << 16) | (l & 0xFFFF);
-        in_rl++;
-	} while (--frame_count);
-}
+void process(struct audio_fader *af, const short *in_buffer, short *out_buffer, unsigned int frame_count);
 

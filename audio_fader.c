@@ -18,16 +18,11 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#include <stdlib.h>
+#include <string.h>
 #include "audio_fader.h"
 
 #define SAMPLE_RATE    44100
-#define SHIFT      	   14
-#define MAX_TARGET     100
-#define MAX_DURATION   
-
-#define OK 0
-#define INVALID -1
+#define SHIFT          14
 
 static const int max_gain = 1 << SHIFT;
 static const float sample_per_ms = SAMPLE_RATE / 1000.0f;
@@ -45,20 +40,20 @@ static void reset(struct audio_fader *af)
 
 static inline int multi_rl(int left, unsigned int in_rl, unsigned int v_rl)
 {
-    if (left) {
-        return short(in_rl & 0xFFFF) * short(v_rl & 0xFFFF);
-    } else {
-        return short(in_rl >> 16) * short(v_rl >> 16);
-    }
+	if (left) {
+		return (short)(in_rl & 0xFFFF) * (short)(v_rl & 0xFFFF);
+	} else {
+		return (short)(in_rl >> 16) * (short)(v_rl >> 16);
+	}
 }
 
 // Public interfaces
-int init(struct audio_fader *af)
+int init_af(struct audio_fader *af)
 {
 	reset(af);
 }
 
-void exit(struct audio_fader *af)
+void exit_af(struct audio_fader *af)
 {
 }
 
@@ -75,10 +70,10 @@ int start_fade(struct audio_fader *af, enum fade_type type, unsigned int duratio
 
 	if (type == FADE_IN) {
 		af->init = 0;
-		af->step = int (target / (duration_msec * sample_per_ms));
+		af->step = (target / (duration_msec * sample_per_ms));
 	} else if (type == FADE_OUT) {
 		af->init = max_gain;
-		af->step = int ((target - max_gain) / (duration_msec * sample_per_ms));
+		af->step = ((target - max_gain) / (duration_msec * sample_per_ms));
 	} else {
 		return INVALID;
 	}
@@ -100,31 +95,31 @@ void process(struct audio_fader *af, const short *in_buffer, short *out_buffer, 
 		if (in_buffer == out_buffer) {
 			return;
 		} else {
-			memcpy((char *)out_buffer, (char *)in_buffer, frame_count * 4); // here assumes stereo 16-bit pcm
+			memcpy((void *)out_buffer, (const void *)in_buffer, frame_count * 4); // here assumes stereo 16-bit pcm
 			return;
 		}
 	}
 	//TODO: process data when enabled
-	unsigned int *in_rl = (unsigned int const *)in_buffer;
+	const unsigned int *in_rl = (unsigned int const *)in_buffer;
 	unsigned int *out = (unsigned int *)out_buffer;
-	unsigned int vrl = (target << 16) | (target & 0xFFFF);
-	
+	unsigned int vrl = (af->target << 16) | (af->target & 0xFFFF);
+
 	do {
 		if (af->step != 0) {
-			if ((step > 0 && af->init + step < target)
-				|| (step < 0 && af->init + step > target)) {
-				af->init += step;
+			if ((af->step > 0 && af->init + af->step < af->target)
+				|| (af->step < 0 && af->init + af->step > af->target)) {
+				af->init += af->step;
 				vrl = (af->init << 16) | (af->init & 0xFFFF);
 			} else {
 				af->step = 0;
-				vrl = (target << 16) | (target & 0xFFFF);
+				vrl = (af->target << 16) | (af->target & 0xFFFF);
 			}
 		}
-		
-        int l = multi_rl(1, *in_rl, vrl) >> SHIFT;
-        int r = multi_rl(0, *in_rl, vrl) >> SHIFT;
-        *out++ = (r << 16) | (l & 0xFFFF);
-        in_rl++;
+
+		int l = multi_rl(1, *in_rl, vrl) >> SHIFT;
+		int r = multi_rl(0, *in_rl, vrl) >> SHIFT;
+		*out++ = (r << 16) | (l & 0xFFFF);
+		in_rl++;
 	} while (--frame_count);
 }
 
