@@ -22,6 +22,10 @@
 #define MAX_TARGET     100
 #define MAX_DURATION   350
 
+#ifdef __cplusplus 
+extern "C" {
+#endif
+
 #define true 1
 #define false 0
 #define OK 0
@@ -51,4 +55,8 @@ void stop_fade(struct audio_fader *af);
 
 // process frame_count samples in in_buffer and copy them into out_buffer
 void process(struct audio_fader *af, const short *in_buffer, short *out_buffer, unsigned int frame_count);
+
+#ifdef __cplusplus 
+}
+#endif
 
