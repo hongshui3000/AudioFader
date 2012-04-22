@@ -37,9 +37,9 @@ enum fade_type {
 };
 
 struct audio_fader {
-	unsigned int duration;
-	unsigned int init;
-	unsigned int target;
+	int duration;
+	int init;
+	int target;
 	int step;
 	_Bool enable_fade;
 };
@@ -49,7 +49,7 @@ int init_af(struct audio_fader *af);
 
 void exit_af(struct audio_fader *af);
 
-int start_fade(struct audio_fader *af, enum fade_type type, unsigned int duration_msec, unsigned int target);
+int start_fade(struct audio_fader *af, enum fade_type type, int duration_msec, int target);
 
 void stop_fade(struct audio_fader *af);
 
